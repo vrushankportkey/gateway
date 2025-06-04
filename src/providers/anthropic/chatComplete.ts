@@ -19,21 +19,26 @@ import { AnthropicStreamState } from './types';
 
 // TODO: this configuration does not enforce the maximum token limit for the input parameter. If you want to enforce this, you might need to add a custom validation function or a max property to the ParameterConfig interface, and then use it in the input configuration. However, this might be complex because the token count is not a simple length check, but depends on the specific tokenization method used by the model.
 
-interface AnthropicTool extends PromptCache {
+interface AnthropicFunctionTool extends PromptCache {
   name: string;
   description: string;
   input_schema: {
     type: string;
-    properties: Record<
-      string,
-      {
-        type: string;
-        description: string;
-      }
-    >;
+    properties: Record<string, { type: string; description: string }>;
     required: string[];
   };
 }
+
+interface AnthropicWebSearchTool extends PromptCache {
+  type: 'web_search_20250305';
+  name?: string;
+  max_uses?: number;
+  allowed_domains?: string[];
+  blocked_domains?: string[];
+  user_location?: Record<string, any>;
+}
+
+type AnthropicTool = AnthropicFunctionTool | AnthropicWebSearchTool;
 
 interface AnthropicToolResultContentItem {
   type: 'tool_result';
@@ -328,7 +333,24 @@ export const AnthropicChatCompleteConfig: ProviderConfig = {
       let tools: AnthropicTool[] = [];
       if (params.tools) {
         params.tools.forEach((tool) => {
-          if (tool.function) {
+          if (tool.type === 'web_search_20250305') {
+            const webSearchTool: AnthropicWebSearchTool = {
+              type: 'web_search_20250305',
+              name: tool.name ?? 'web_search',
+              ...(tool.max_uses !== undefined && { max_uses: tool.max_uses }),
+              ...(tool.allowed_domains && {
+                allowed_domains: tool.allowed_domains,
+              }),
+              ...(tool.blocked_domains && {
+                blocked_domains: tool.blocked_domains,
+              }),
+              ...(tool.user_location && { user_location: tool.user_location }),
+            };
+            if (tool.cache_control) {
+              webSearchTool.cache_control = { type: 'ephemeral' };
+            }
+            tools.push(webSearchTool);
+          } else if (tool.function) {
             tools.push({
               name: tool.function.name,
               description: tool.function?.description || '',

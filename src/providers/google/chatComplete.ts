@@ -367,15 +367,16 @@ export const GoogleChatCompleteConfig: ProviderConfig = {
           recursivelyDeleteUnsupportedParameters(tool.function?.parameters);
           delete tool.function?.strict;
 
-          if (['googleSearch', 'google_search'].includes(tool.function.name)) {
+          if (tool.function && ['googleSearch', 'google_search'].includes(tool.function.name)) {
             tools.push({ googleSearch: {} });
           } else if (
+            tool.function &&
             ['googleSearchRetrieval', 'google_search_retrieval'].includes(
               tool.function.name
             )
           ) {
             tools.push(buildGoogleSearchRetrievalTool(tool));
-          } else {
+          } else if (tool.function) {
             functionDeclarations.push(tool.function);
           }
         }
